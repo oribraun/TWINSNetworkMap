@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="1099b8c7-5fe8-4559-9cf6-7c42ae1ebddd" name="map" url="http://167.99.83.22">
+        <fileTransfer host="167.99.83.22" port="22" privateKey="C:\Users\ori\Desktop\blockExplorerAdwin.ppk" accessType="SFTP" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
