@@ -85,6 +85,15 @@ DAT.Globe = function(container, opts) {
   var padding = 40;
   var PI_HALF = Math.PI / 2;
 
+  var pinching = false;
+  var pinch_details = {
+      start_distance:'',
+      current_distance:'',
+      last_distance:'',
+  };
+  var pinch_step = 60;
+  var lastTap = 0;
+  var rotated = false;
   function init() {
 
     container.style.color = '#fff';
@@ -93,7 +102,9 @@ DAT.Globe = function(container, opts) {
     var shader, uniforms, material;
     w = container.offsetWidth || window.innerWidth;
     h = container.offsetHeight || window.innerHeight;
-
+    if(h > w ) {
+        h = h * w/h;
+    }
     camera = new THREE.PerspectiveCamera(30, w / h, 1, 10000);
     camera.position.z = distance;
 
@@ -143,14 +154,15 @@ DAT.Globe = function(container, opts) {
 
     renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(w, h);
-
-    renderer.domElement.style.position = 'absolute';
-
     container.appendChild(renderer.domElement);
+      // renderer.domElement.style.position = 'absolute';
+      renderer.domElement.style.marginTop = (window.innerHeight - renderer.domElement.clientHeight)/2 + 'px';
 
     container.addEventListener('mousedown', onMouseDown, false);
+    container.addEventListener('touchstart', onMouseDown, false);
 
     container.addEventListener('mousewheel', onMouseWheel, false);
+    container.addEventListener('DOMMouseScroll', onMouseWheel, false);
 
     document.addEventListener('keydown', onDocumentKeyDown, false);
 
@@ -271,45 +283,117 @@ DAT.Globe = function(container, opts) {
   }
 
   function onMouseDown(event) {
-    event.preventDefault();
+    if ((event.type === 'mousedown' && event.which == 1) || event.type === 'touchstart') {
+        event.preventDefault();
+        if(event.touches && event.touches.length == 2) {
+            pinch_details.start_distance = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
+            if(pinch_details.last_distance < pinch_details.current_distance) {
+                pinch_details.last_distance = pinch_details.current_distance
+            }
+            pinching = true;
+        } else {
+            var position = getPointerPos(event);
+            container.addEventListener('mousemove', onMouseMove, false);
+            container.addEventListener('mouseup', onMouseUp, false);
+            container.addEventListener('mouseout', onMouseOut, false);
 
-    container.addEventListener('mousemove', onMouseMove, false);
-    container.addEventListener('mouseup', onMouseUp, false);
-    container.addEventListener('mouseout', onMouseOut, false);
+            container.addEventListener('touchmove', onMouseMove, false);
+            container.addEventListener('touchend', onMouseUp, false);
 
-    mouseOnDown.x = - event.clientX;
-    mouseOnDown.y = event.clientY;
+            mouseOnDown.x = -position.x;
+            mouseOnDown.y = position.y;
 
-    targetOnDown.x = target.x;
-    targetOnDown.y = target.y;
+            targetOnDown.x = target.x;
+            targetOnDown.y = target.y;
 
-    container.style.cursor = 'move';
+            container.style.cursor = 'move';
+        }
+    }
   }
 
   function onMouseMove(event) {
-    mouse.x = - event.clientX;
-    mouse.y = event.clientY;
+    if(pinching) {
+        pinch_details.current_distance = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
+//                            pinch_details.last_distance = pinch_details.current_distance
+//                            var step = Math.round((pinch_details.current_distance -  pinch_details.start_distance)%1);
+        if(pinch_details.current_distance -  pinch_details.start_distance > 0) {
+            //pinch zoom in
+            // if (overRenderer) {
+                zoom(pinch_step * 0.3);
+            // }
 
-    var zoomDamp = distance/1000;
+        } else if(pinch_details.current_distance -  pinch_details.start_distance < 0) {
+            //pinch zoom out
 
-    target.x = targetOnDown.x + (mouse.x - mouseOnDown.x) * 0.005 * zoomDamp;
-    target.y = targetOnDown.y + (mouse.y - mouseOnDown.y) * 0.005 * zoomDamp;
+            // if (overRenderer) {
+                zoom(-pinch_step * 0.3);
+            // }
 
-    target.y = target.y > PI_HALF ? PI_HALF : target.y;
-    target.y = target.y < - PI_HALF ? - PI_HALF : target.y;
+        }
+//                            $scope.$apply(tis.zoom);
+        pinch_details.start_distance = pinch_details.current_distance;
+    } else {
+        var position = getPointerPos(event);
+        mouse.x = -position.x;
+        mouse.y = position.y;
+
+        var zoomDamp = distance / 750;
+
+        if((mouse.x - mouseOnDown.x) !== 0 || (mouse.y - mouseOnDown.y) !== 0) {
+          rotated = true;
+        }
+
+        target.x = targetOnDown.x + (mouse.x - mouseOnDown.x) * 0.005 * zoomDamp;
+        target.y = targetOnDown.y + (mouse.y - mouseOnDown.y) * 0.005 * zoomDamp;
+
+        target.y = target.y > PI_HALF ? PI_HALF : target.y;
+        target.y = target.y < -PI_HALF ? -PI_HALF : target.y;
+    }
   }
 
   function onMouseUp(event) {
     container.removeEventListener('mousemove', onMouseMove, false);
     container.removeEventListener('mouseup', onMouseUp, false);
     container.removeEventListener('mouseout', onMouseOut, false);
+
+    container.removeEventListener('touchmove', onMouseMove, false);
+    container.removeEventListener('touchend', onMouseUp, false);
     container.style.cursor = 'auto';
+    if(pinching) {
+        pinching = false;
+    }
+
+    if(!rotated) {
+        var currentTime = new Date().getTime();
+        var tapLength = currentTime - lastTap;
+        if (tapLength < 500 && tapLength > 0) {
+//                            elm2.innerHTML = 'Double Tap';
+            if (distanceTarget == 1000) {
+                zoom(1000);
+            } else {
+                zoom(-1000);
+            }
+            lastTap = 0;
+            currentTime = 0;
+            event.preventDefault();
+        } else {
+//                            elm2.innerHTML = 'Single Tap';
+        }
+        lastTap = currentTime;
+    }
+    rotated = false;
   }
 
   function onMouseOut(event) {
     container.removeEventListener('mousemove', onMouseMove, false);
     container.removeEventListener('mouseup', onMouseUp, false);
     container.removeEventListener('mouseout', onMouseOut, false);
+
+    container.removeEventListener('touchmove', onMouseMove, false);
+    container.removeEventListener('touchend', onMouseUp, false);
+      if(pinching) {
+          pinching = false;
+      }
   }
 
   function onMouseWheel(event) {
@@ -334,10 +418,36 @@ DAT.Globe = function(container, opts) {
   }
 
   function onWindowResize( event ) {
-    camera.aspect = container.offsetWidth / container.offsetHeight;
+    w = container.offsetWidth || window.innerWidth;
+    h = container.offsetHeight || window.innerHeight;
+    if(h > w ) {
+        h = h * w/h;
+    }
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize( container.offsetWidth, container.offsetHeight );
+    renderer.setSize( w, h );
+    renderer.domElement.style.marginTop = (window.innerHeight - renderer.domElement.height)/2 + 'px';
   }
+
+    function getPointerPos(evt) {
+        var x = 0,y = 0;
+        if(evt.clientX && evt.clientY) {
+            x = evt.clientX;
+            y = evt.clientY;
+        } else if(evt.targetTouches) {
+            evt.preventDefault();
+            x = evt.targetTouches[0].clientX;
+            y = evt.targetTouches[0].clientY;
+        } else if(evt.touches) {
+            evt.preventDefault();
+            x = evt.touches[0].clientX;
+            y = evt.touches[0].clientY;
+        }
+        return {
+            x: x,
+            y: y
+        };
+    }
 
   function zoom(delta) {
     distanceTarget -= delta;
