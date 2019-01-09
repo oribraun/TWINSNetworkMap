@@ -26,8 +26,8 @@ router.get("/", function(req, res) {
     res.json({message: "hooray! welcome to our api!"});
 });
 router.get("/getmasternodes", function(req, res) {
-    request({uri: 'http://test.win.win/ext/getmasternodesmap', json: true}, function (error, response, body) {
-
+   request({uri: 'https://explorer.win.win/ext/getpeersmap', json: true}, function (error, response, body) {
+	  // request({uri: 'https://win.win/static.json', json: true}, function (error, response, body) {
         if (response && response.statusCode == 200) {
             // console.log("response",response.statusCode);
             createNodesFile(body);
